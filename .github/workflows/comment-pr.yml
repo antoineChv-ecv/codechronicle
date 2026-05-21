@@ -2,7 +2,7 @@ name: Comment PR with Article Summary
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [synchronize]
     branches:
       - main
 
