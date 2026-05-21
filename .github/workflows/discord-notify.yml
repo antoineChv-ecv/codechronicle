@@ -34,11 +34,12 @@ jobs:
           // Read all markdown files from the blog/ directory
           const files = fs.readdirSync(BLOG_DIR).filter(f => f.endsWith('.md'));
 
-          // Find the first non-empty file — that's the generated article
-          const generatedFile = files.find(f => {
-            const content = fs.readFileSync(path.join(BLOG_DIR, f), 'utf8');
-            return content.trim() !== '';
-          });
+          // Sort by modification time descending — most recently modified file first
+          const generatedFile = files
+            .filter(f => fs.readFileSync(path.join(BLOG_DIR, f), 'utf8').trim() !== '')
+            .sort((a, b) => {
+              return fs.statSync(path.join(BLOG_DIR, b)).mtimeMs - fs.statSync(path.join(BLOG_DIR, a)).mtimeMs;
+            })[0];
 
           if (!generatedFile) {
             console.log('No generated article found. Skipping Discord notification.');
@@ -55,9 +56,9 @@ jobs:
           const summaryMatch = content.match(/^summary:\s*"?(.+?)"?\s*$/m);
           const summary = summaryMatch ? summaryMatch[1] : 'No summary available';
 
-          // Placeholder until the site is deployed on InfinityFree
+          // Build the article URL from the filename
           const slug = generatedFile.replace('.md', '');
-            const articleUrl = `https://blogchloeantoine.infinityfreeapp.com/${slug}.html`;
+          const articleUrl = `https://blogchloeantoine.infinityfreeapp.com/${slug}.html`;
 
           console.log(`Sending Discord notification for: "${title}"`);
 
