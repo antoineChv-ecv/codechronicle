@@ -13,67 +13,54 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Extract title and summary from markdown
-        id: extract
-        run: |
-          cat > /tmp/extract.cjs << 'EOF'
-          const fs = require('fs');
-          const path = require('path');
-
-          const BLOG_DIR = 'blog';
-
-          // Read all markdown files from the blog/ directory
-          const files = fs.readdirSync(BLOG_DIR).filter(f => f.endsWith('.md'));
-
-          // Find the first non-empty file — that's the generated one
-          // Sort by modification time descending — most recently modified file first
-            const generatedFile = files
-            .filter(f => fs.readFileSync(path.join(BLOG_DIR, f), 'utf8').trim() !== '')
-            .sort((a, b) => b.localeCompare(a))[0];
-
-          if (!generatedFile) {
-            console.log('No generated article found. Skipping comment.');
-            process.exit(0);
-          }
-
-          const content = fs.readFileSync(path.join(BLOG_DIR, generatedFile), 'utf8');
-
-          // Extract title from frontmatter
-          const titleMatch = content.match(/^title:\s*"?(.+?)"?\s*$/m);
-          const title = titleMatch ? titleMatch[1] : 'No title found';
-
-          // Extract summary from frontmatter
-          const summaryMatch = content.match(/^summary:\s*"?(.+?)"?\s*$/m);
-          const summary = summaryMatch ? summaryMatch[1] : 'No summary found';
-
-          // Output values for the next step via GitHub Actions environment file
-          const output = process.env.GITHUB_OUTPUT;
-          fs.appendFileSync(output, `title=${title}\n`);
-          fs.appendFileSync(output, `summary=${summary}\n`);
-
-          console.log(`Title: ${title}`);
-          console.log(`Summary: ${summary}`);
-          EOF
-          node /tmp/extract.cjs
-
-      - name: Post comment on PR
+      - name: Extract title and summary and post PR comment
         uses: actions/github-script@v7
         with:
           script: |
-            const title = `${{ steps.extract.outputs.title }}`;
-            const summary = `${{ steps.extract.outputs.summary }}`;
+            const fs = require('fs');
+            const path = require('path');
+
+            const BLOG_DIR = 'blog';
+
+            // Read all markdown files and sort by filename descending — most recent first
+            const files = fs.readdirSync(BLOG_DIR).filter(f => f.endsWith('.md'));
+            const generatedFile = files
+              .filter(f => fs.readFileSync(path.join(BLOG_DIR, f), 'utf8').trim() !== '')
+              .sort((a, b) => b.localeCompare(a))[0];
+
+            if (!generatedFile) {
+              console.log('No generated article found. Skipping comment.');
+              return;
+            }
+
+            const content = fs.readFileSync(path.join(BLOG_DIR, generatedFile), 'utf8');
+
+            // Extract title from frontmatter
+            const titleMatch = content.match(/^title:\s*"?(.+?)"?\s*$/m);
+            const title = titleMatch ? titleMatch[1] : 'No title found';
+
+            // Extract summary from frontmatter
+            const summaryMatch = content.match(/^summary:\s*"?(.+?)"?\s*$/m);
+            const summary = summaryMatch ? summaryMatch[1] : 'No summary found';
+
+            // Find the PR associated with the triggering workflow run
+            const headSha = context.payload.workflow_run.head_sha;
+            const pulls = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+
+            const pr = pulls.data.find(p => p.head.sha === headSha);
+            if (!pr) {
+              console.log('No open PR found for this workflow run. Skipping comment.');
+              return;
+            }
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: pr.number,
               body: `## 🤖 AI Article Generated\n\n**Title:** ${title}\n\n**Summary:** ${summary}\n\n> This article was automatically generated from the filename by the CodeChronicle AI pipeline.`
             });
