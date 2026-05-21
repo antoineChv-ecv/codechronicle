@@ -1,10 +1,10 @@
 name: Comment PR with Article Summary
 
 on:
-  pull_request:
-    types: [synchronize]
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Generate AI Article"]
+    types:
+      - completed
 
 jobs:
   comment:
