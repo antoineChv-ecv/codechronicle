@@ -56,7 +56,8 @@ jobs:
           const summary = summaryMatch ? summaryMatch[1] : 'No summary available';
 
           // Placeholder until the site is deployed on InfinityFree
-          const articleUrl = 'Link available once the site is deployed on InfinityFree';
+          const slug = generatedFile.replace('.md', '');
+            const articleUrl = `https://blogchloeantoine.infinityfreeapp.com/${slug}.html`;
 
           console.log(`Sending Discord notification for: "${title}"`);
 
