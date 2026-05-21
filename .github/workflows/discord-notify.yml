@@ -55,9 +55,8 @@ jobs:
           const summaryMatch = content.match(/^summary:\s*"?(.+?)"?\s*$/m);
           const summary = summaryMatch ? summaryMatch[1] : 'No summary available';
 
-          // Build the article URL from the filename (will be live once deployed)
-          const slug = generatedFile.replace('.md', '');
-          const articleUrl = `https://YOUR_SITE.infinityfreeapp.com/${slug}.html`;
+          // Placeholder until the site is deployed on InfinityFree
+          const articleUrl = 'Link available once the site is deployed on InfinityFree';
 
           console.log(`Sending Discord notification for: "${title}"`);
 
@@ -77,7 +76,7 @@ jobs:
                   color: 5814783,
                   fields: [
                     {
-                      name: '🔗 Read the article',
+                      name: '🔗 Article link',
                       value: articleUrl
                     }
                   ],
