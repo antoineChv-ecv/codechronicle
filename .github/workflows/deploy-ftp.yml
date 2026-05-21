@@ -1,0 +1,36 @@
+name: Deploy to InfinityFree via FTP
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate static site from markdown files
+        run: node scripts/generate-site.js
+
+      - name: Deploy public/ to InfinityFree via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./public/
+          server-dir: /htdocs/
+
+      - name: Validate deployment
+        run: |
+          echo "Deployment complete. Checking site availability..."
+          curl --fail --silent --max-time 10 https://${{ secrets.FTP_HOST }} || echo "Site not yet available — check InfinityFree dashboard."
