@@ -3,8 +3,7 @@ name: Comment PR with Article Summary
 on:
   workflow_run:
     workflows: ["Generate AI Article"]
-    types:
-      - completed
+    types: [completed]
 
 jobs:
   comment:
