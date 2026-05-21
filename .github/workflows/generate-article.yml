@@ -1,0 +1,115 @@
+name: Generate AI Article
+
+on:
+  pull_request:
+    types: [opened]
+    branches:
+      - main
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate article from filename
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          const BLOG_DIR = 'blog';
+
+          // Read all markdown files from the blog/ directory
+          // We use readdirSync because this script runs synchronously at build time
+          const files = fs.readdirSync(BLOG_DIR).filter(f => f.endsWith('.md'));
+
+          // Find the first empty file — that's the one to generate
+          const emptyFile = files.find(f => {
+            const content = fs.readFileSync(path.join(BLOG_DIR, f), 'utf8');
+            return content.trim() === '';
+          });
+
+          if (!emptyFile) {
+            console.log('No empty markdown file found. Skipping generation.');
+            process.exit(0);
+          }
+
+          // Extract the slug from the filename (remove date prefix and .md extension)
+          const slug = emptyFile.replace(/^\d{4}-\d{2}-\d{2}-/, '').replace('.md', '');
+          const prompt = slug.replace(/-/g, ' ');
+
+          console.log(`Generating article for: "${prompt}"`);
+
+          // Call the OpenAI API to generate the article
+          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              max_tokens: 1024,
+              messages: [
+                {
+                  role: 'user',
+                  content: `Write a technical blog article about: "${prompt}".
+          
+          Respond ONLY with a markdown file using this exact structure, no extra text:
+
+          ---
+          title: "The full article title"
+          summary: "A one-sentence summary of the article"
+          tags: [tag1, tag2, tag3]
+          ---
+
+          # Title
+
+          Article content here...`
+                }
+              ]
+            })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            console.error('API error:', JSON.stringify(data));
+            process.exit(1);
+          }
+
+          // Extract the generated content from the OpenAI response
+          const generatedContent = data.choices[0].message.content;
+
+          // Write the generated content back to the markdown file
+          const filePath = path.join(BLOG_DIR, emptyFile);
+          fs.writeFileSync(filePath, generatedContent, 'utf8');
+
+          console.log(`Article written to ${filePath}`);
+          EOF
+
+      - name: Commit generated article
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add blog/
+          git diff --staged --quiet || git commit -m "feat(blog): generate article from filename prompt"
+          git push
+
+      - name: Upload article as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-article
+          path: blog/
