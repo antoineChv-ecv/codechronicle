@@ -34,10 +34,12 @@ jobs:
           const files = fs.readdirSync(BLOG_DIR).filter(f => f.endsWith('.md'));
 
           // Find the first non-empty file — that's the generated one
-          const generatedFile = files.find(f => {
-            const content = fs.readFileSync(path.join(BLOG_DIR, f), 'utf8');
-            return content.trim() !== '';
-          });
+          // Sort by modification time descending — most recently modified file first
+            const generatedFile = files
+            .filter(f => fs.readFileSync(path.join(BLOG_DIR, f), 'utf8').trim() !== '')
+            .sort((a, b) => {
+                return fs.statSync(path.join(BLOG_DIR, b)).mtimeMs - fs.statSync(path.join(BLOG_DIR, a)).mtimeMs;
+            })[0];
 
           if (!generatedFile) {
             console.log('No generated article found. Skipping comment.');
