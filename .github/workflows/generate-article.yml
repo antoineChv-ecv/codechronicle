@@ -2,7 +2,7 @@ name: Generate AI Article
 
 on:
   pull_request:
-    types: [opened]
+    types: [opened, synchronize]
     branches:
       - main
 
@@ -25,7 +25,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          node - <<'EOF'
+          cat > /tmp/generate.cjs << 'EOF'
           const fs = require('fs');
           const path = require('path');
 
@@ -53,7 +53,7 @@ jobs:
           console.log(`Generating article for: "${prompt}"`);
 
           // Call the OpenAI API to generate the article
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -65,40 +65,33 @@ jobs:
               messages: [
                 {
                   role: 'user',
-                  content: `Write a technical blog article about: "${prompt}".
-          
-          Respond ONLY with a markdown file using this exact structure, no extra text:
-
-          ---
-          title: "The full article title"
-          summary: "A one-sentence summary of the article"
-          tags: [tag1, tag2, tag3]
-          ---
-
-          # Title
-
-          Article content here...`
+                  content: `Write a technical blog article about: "${prompt}". Respond ONLY with a markdown file using this exact structure, no extra text:\n\n---\ntitle: "The full article title"\nsummary: "A one-sentence summary of the article"\ntags: [tag1, tag2, tag3]\n---\n\n# Title\n\nArticle content here...`
                 }
               ]
             })
-          });
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (!data.choices) {
+              console.error('API error:', JSON.stringify(data));
+              process.exit(1);
+            }
 
-          const data = await response.json();
+            // Extract the generated content from the OpenAI response
+            const generatedContent = data.choices[0].message.content;
 
-          if (!response.ok) {
-            console.error('API error:', JSON.stringify(data));
+            // Write the generated content back to the markdown file
+            const filePath = path.join(BLOG_DIR, emptyFile);
+            fs.writeFileSync(filePath, generatedContent, 'utf8');
+
+            console.log(`Article written to ${filePath}`);
+          })
+          .catch(err => {
+            console.error('Fetch error:', err);
             process.exit(1);
-          }
-
-          // Extract the generated content from the OpenAI response
-          const generatedContent = data.choices[0].message.content;
-
-          // Write the generated content back to the markdown file
-          const filePath = path.join(BLOG_DIR, emptyFile);
-          fs.writeFileSync(filePath, generatedContent, 'utf8');
-
-          console.log(`Article written to ${filePath}`);
+          });
           EOF
+          node /tmp/generate.cjs
 
       - name: Commit generated article
         run: |
