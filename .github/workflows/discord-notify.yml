@@ -1,0 +1,103 @@
+name: Discord Notification on Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  notify:
+    # Only run if the PR was actually merged, not just closed
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Extract article info and send Discord notification
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          cat > /tmp/discord.cjs << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          const BLOG_DIR = 'blog';
+
+          // Read all markdown files from the blog/ directory
+          const files = fs.readdirSync(BLOG_DIR).filter(f => f.endsWith('.md'));
+
+          // Find the first non-empty file — that's the generated article
+          const generatedFile = files.find(f => {
+            const content = fs.readFileSync(path.join(BLOG_DIR, f), 'utf8');
+            return content.trim() !== '';
+          });
+
+          if (!generatedFile) {
+            console.log('No generated article found. Skipping Discord notification.');
+            process.exit(0);
+          }
+
+          const content = fs.readFileSync(path.join(BLOG_DIR, generatedFile), 'utf8');
+
+          // Extract title from frontmatter
+          const titleMatch = content.match(/^title:\s*"?(.+?)"?\s*$/m);
+          const title = titleMatch ? titleMatch[1] : 'New article published';
+
+          // Extract summary from frontmatter
+          const summaryMatch = content.match(/^summary:\s*"?(.+?)"?\s*$/m);
+          const summary = summaryMatch ? summaryMatch[1] : 'No summary available';
+
+          // Build the article URL from the filename (will be live once deployed)
+          const slug = generatedFile.replace('.md', '');
+          const articleUrl = `https://YOUR_SITE.infinityfreeapp.com/${slug}.html`;
+
+          console.log(`Sending Discord notification for: "${title}"`);
+
+          // Send the Discord webhook notification
+          fetch(process.env.DISCORD_WEBHOOK_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              username: 'CodeChronicle',
+              avatar_url: 'https://cdn-icons-png.flaticon.com/512/25/25231.png',
+              embeds: [
+                {
+                  title: `📝 New article published: ${title}`,
+                  description: summary,
+                  color: 5814783,
+                  fields: [
+                    {
+                      name: '🔗 Read the article',
+                      value: articleUrl
+                    }
+                  ],
+                  footer: {
+                    text: 'CodeChronicle — Automated technical blog'
+                  }
+                }
+              ]
+            })
+          })
+          .then(res => {
+            if (!res.ok) {
+              console.error('Discord webhook error:', res.status);
+              process.exit(1);
+            }
+            console.log('Discord notification sent successfully.');
+          })
+          .catch(err => {
+            console.error('Fetch error:', err);
+            process.exit(1);
+          });
+          EOF
+          node /tmp/discord.cjs
