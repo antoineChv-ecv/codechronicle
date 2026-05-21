@@ -37,9 +37,7 @@ jobs:
           // Sort by modification time descending — most recently modified file first
           const generatedFile = files
             .filter(f => fs.readFileSync(path.join(BLOG_DIR, f), 'utf8').trim() !== '')
-            .sort((a, b) => {
-              return fs.statSync(path.join(BLOG_DIR, b)).mtimeMs - fs.statSync(path.join(BLOG_DIR, a)).mtimeMs;
-            })[0];
+            .sort((a, b) => b.localeCompare(a))[0];
 
           if (!generatedFile) {
             console.log('No generated article found. Skipping Discord notification.');
