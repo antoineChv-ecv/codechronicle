@@ -1,4 +1,4 @@
-# CodeChronicle
+ # CodeChronicle
 
 ![Generate AI Article](https://img.shields.io/github/actions/workflow/status/antoineChv-ecv/codechronicle/generate-article.yml?label=AI%20Generation&style=flat-square)
 ![Generate Site](https://img.shields.io/github/actions/workflow/status/antoineChv-ecv/codechronicle/generate-site.yml?label=Site%20Generation&style=flat-square)
@@ -62,10 +62,13 @@ The filename becomes the AI prompt. For example:
 
 ### 2. Open a Pull Request
 
-Opening a PR toward `main` triggers two workflows automatically:
+Opening (or updating) a PR toward `main` triggers the generation workflow:
 
-- **`generate-article.yml`** — calls the OpenAI API and fills the `.md` file with a complete article (title, summary, tags, content in YAML frontmatter)
-- **`comment-pr.yml`** — posts a comment in the PR with the generated title and summary
+- **`generate-article.yml`** — calls the OpenAI API and fills the `.md` file with a complete article (title, summary, tags, content in YAML frontmatter), commits it back to the branch, and uploads it as a GitHub Actions artifact
+
+Once the generation completes, a second workflow fires automatically:
+
+- **`comment-pr.yml`** — triggered by `workflow_run` on completion of `generate-article.yml`, it downloads the artifact and posts a comment on the PR with the generated title and summary
 
 ### 3. Merge
 
