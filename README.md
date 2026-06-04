@@ -32,7 +32,7 @@ Empty .md file → PR opened → AI generates article → PR commented → Merge
 codechronicle/
 ├── .github/
 │   └── workflows/
-│       ├── generate-article.yml     # AI generation triggered on PR open
+│       ├── generate-article.yml     # AI generation triggered on PR open or update
 │       ├── comment-pr.yml           # Automatic comment on the PR
 │       ├── generate-site.yml        # Static site generation on merge
 │       ├── discord-notify.yml       # Discord notification on merge
