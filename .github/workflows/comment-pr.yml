@@ -51,14 +51,16 @@ jobs:
             const summary = summaryMatch ? summaryMatch[1] : 'No summary found';
 
             // Find the PR associated with the triggering workflow run
-            const headSha = context.payload.workflow_run.head_sha;
+            // Match by branch name, not SHA — generate-article.yml pushes a new commit
+            // after generation, so head_sha is stale by the time this workflow fires.
+            const headBranch = context.payload.workflow_run.head_branch;
             const pulls = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open'
             });
 
-            const pr = pulls.data.find(p => p.head.sha === headSha);
+            const pr = pulls.data.find(p => p.head.ref === headBranch);
             if (!pr) {
               console.log('No open PR found for this workflow run. Skipping comment.');
               return;
